@@ -9,7 +9,13 @@ const MAX_DB_INIT_RETRIES: u32 = 5;
 
 pub fn init_db(app: &AppHandle) -> Result<DbConnection, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    init_db_at(&dir)
+}
+
+/// Tauri-free database initializer used by the headless self-host binary.
+/// Opens (and migrates) `shares.db` inside `dir`.
+pub fn init_db_at(dir: &std::path::Path) -> Result<DbConnection, String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let db_path = dir.join("shares.db");
     
     // Retry opening the database with exponential backoff.

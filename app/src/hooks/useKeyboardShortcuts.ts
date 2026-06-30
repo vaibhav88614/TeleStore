@@ -9,6 +9,8 @@ interface UseKeyboardShortcutsProps {
     onDownload?: () => void;
     onShare?: () => void;
     onRename?: () => void;
+    onUpload?: () => void;
+    onToggleView?: () => void;
     enabled?: boolean;
 }
 
@@ -21,6 +23,8 @@ export function useKeyboardShortcuts({
     onDownload,
     onShare,
     onRename,
+    onUpload,
+    onToggleView,
     enabled = true
 }: UseKeyboardShortcutsProps) {
 
@@ -94,7 +98,21 @@ export function useKeyboardShortcuts({
             onShare?.();
             return;
         }
-    }, [enabled, onSelectAll, onDelete, onEscape, onSearch, onEnter, onDownload, onShare, onRename]);
+
+        // Ctrl/Cmd + U - Upload files
+        if (isMod && e.key.toLowerCase() === 'u') {
+            e.preventDefault();
+            onUpload?.();
+            return;
+        }
+
+        // Ctrl/Cmd + B - Toggle grid/list view
+        if (isMod && e.key.toLowerCase() === 'b') {
+            e.preventDefault();
+            onToggleView?.();
+            return;
+        }
+    }, [enabled, onSelectAll, onDelete, onEscape, onSearch, onEnter, onDownload, onShare, onRename, onUpload, onToggleView]);
 
     useEffect(() => {
         window.addEventListener('keydown', handleKeyDown);

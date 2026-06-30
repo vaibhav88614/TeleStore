@@ -1,0 +1,54 @@
+name: "Security Audit"
+
+on:
+  push:
+    branches: [main, personalized, selfhost, product, learn]
+  pull_request:
+  schedule:
+    # Re-run weekly so newly disclosed advisories are caught even without commits.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  npm-audit:
+    name: "npm audit (frontend)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci || npm install
+
+      # Production deps must be clean. Dev/build-tool advisories are reported
+      # but do not fail the build (they don't ship in the bundled app).
+      - name: Audit production dependencies (fails on vulnerabilities)
+        working-directory: app
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit all dependencies (informational)
+        working-directory: app
+        run: npm audit || true
+
+  cargo-audit:
+    name: "cargo audit (Rust backend)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      # The grammers-* crates are pinned to a git revision in Cargo.toml; audit
+      # still scans the rest of the dependency tree from Cargo.lock.
+      - name: Run cargo audit
+        working-directory: app/src-tauri
+        run: cargo audit

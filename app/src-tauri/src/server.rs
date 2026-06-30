@@ -18,6 +18,40 @@ struct StreamQuery {
     token: Option<String>,
 }
 
+#[cfg(test)]
+mod range_tests {
+    use super::parse_range_header;
+
+    #[test]
+    fn full_open_ended_range() {
+        // "bytes=0-" → whole file
+        assert_eq!(parse_range_header("bytes=0-", 1000), Some((0, 999)));
+    }
+
+    #[test]
+    fn closed_range() {
+        assert_eq!(parse_range_header("bytes=100-199", 1000), Some((100, 199)));
+    }
+
+    #[test]
+    fn end_is_clamped_to_size() {
+        // Requested end beyond EOF clamps to total_size - 1.
+        assert_eq!(parse_range_header("bytes=500-99999", 1000), Some((500, 999)));
+    }
+
+    #[test]
+    fn rejects_non_bytes_unit_and_inverted() {
+        assert_eq!(parse_range_header("items=0-10", 1000), None);
+        // start > end is invalid
+        assert_eq!(parse_range_header("bytes=900-100", 1000), None);
+    }
+
+    #[test]
+    fn rejects_garbage() {
+        assert_eq!(parse_range_header("bytes=abc-def", 1000), None);
+    }
+}
+
 pub fn parse_range_header(header_val: &str, total_size: u64) -> Option<(u64, u64)> {
     if !header_val.starts_with("bytes=") {
         return None;

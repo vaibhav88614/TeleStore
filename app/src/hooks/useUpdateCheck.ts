@@ -1,6 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
-import { check, Update } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
+import { useCallback } from 'react';
+
+// Auto-update is intentionally disabled in this personalized build.
+//
+// The upstream project ships a Tauri updater that trusts a single minisign
+// public key controlled by the original author and pulls release artifacts
+// from their GitHub repo. Leaving that enabled would let an external party
+// push arbitrary code (including the ad gateway that was removed) to this
+// build. This hook is now an inert stub so the UI wiring keeps working while
+// no network update check ever runs.
+//
+// To re-enable auto-update for your OWN distribution:
+//   1. Generate your own key:  npx @tauri-apps/cli signer generate
+//   2. Put the public key + your release endpoint back in tauri.conf.json
+//   3. Re-add tauri_plugin_updater in src-tauri/src/lib.rs and the
+//      "updater:default" capability, then restore the original plugin-based
+//      implementation of this hook.
 
 interface UpdateState {
     checking: boolean;
@@ -11,91 +25,23 @@ interface UpdateState {
     version: string | null;
 }
 
+const INERT_STATE: UpdateState = {
+    checking: false,
+    available: false,
+    downloading: false,
+    progress: 0,
+    error: null,
+    version: null,
+};
+
 export function useUpdateCheck() {
-    const [state, setState] = useState<UpdateState>({
-        checking: false,
-        available: false,
-        downloading: false,
-        progress: 0,
-        error: null,
-        version: null,
-    });
-    const [update, setUpdate] = useState<Update | null>(null);
-
-    const checkForUpdates = useCallback(async () => {
-        setState(s => ({ ...s, checking: true, error: null }));
-        try {
-            const updateInfo = await check();
-            if (updateInfo) {
-                setUpdate(updateInfo);
-                setState(s => ({
-                    ...s,
-                    checking: false,
-                    available: true,
-                    version: updateInfo.version,
-                }));
-            } else {
-                setState(s => ({ ...s, checking: false, available: false }));
-            }
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Failed to check for updates';
-            setState(s => ({
-                ...s,
-                checking: false,
-                error: message,
-            }));
-        }
-    }, []);
-
-    const downloadAndInstall = useCallback(async () => {
-        if (!update) return;
-
-        setState(s => ({ ...s, downloading: true, progress: 0 }));
-        let downloaded = 0;
-        let contentLength = 0;
-
-        try {
-            await update.downloadAndInstall((event) => {
-                if (event.event === 'Started') {
-                    const data = event.data as { contentLength?: number };
-                    contentLength = data.contentLength || 0;
-                } else if (event.event === 'Progress') {
-                    const data = event.data as { chunkLength?: number };
-                    downloaded += data.chunkLength || 0;
-                    if (contentLength > 0) {
-                        const pct = Math.round((downloaded / contentLength) * 100);
-                        setState(s => ({ ...s, progress: Math.min(pct, 100) }));
-                    }
-                }
-            });
-
-            await relaunch();
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Failed to install update';
-            setState(s => ({
-                ...s,
-                downloading: false,
-                error: message,
-            }));
-        }
-    }, [update]);
-
-    const dismissUpdate = useCallback(() => {
-        setState(s => ({ ...s, available: false }));
-        setUpdate(null);
-    }, []);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            checkForUpdates().catch(console.error);
-        }, 5000);
-        return () => clearTimeout(timer);
-    }, [checkForUpdates]);
+    const noop = useCallback(async () => {}, []);
+    const dismissUpdate = useCallback(() => {}, []);
 
     return {
-        ...state,
-        checkForUpdates,
-        downloadAndInstall,
+        ...INERT_STATE,
+        checkForUpdates: noop,
+        downloadAndInstall: noop,
         dismissUpdate,
     };
 }

@@ -42,6 +42,7 @@ pub mod commands;
 pub mod bandwidth;
 pub mod vpn_optimizer;
 pub mod socks5_bridge;
+pub mod crypto;
 
 use tauri::Manager;
 
@@ -366,62 +367,6 @@ fn cmd_remove_cached_path(_uri: String) -> Result<(), String> {
     Ok(()) // No-op on desktop
 }
 
-/// Gather system diagnostics and environment info for debugging.
-/// Returns a formatted string suitable for copying to clipboard.
-#[tauri::command]
-fn cmd_get_system_diagnostics(
-    app: tauri::AppHandle,
-) -> Result<String, String> {
-    let mut lines: Vec<String> = Vec::new();
-
-    lines.push("=== Telegram Drive Diagnostics ===".into());
-    lines.push(format!("Package: {}", env!("CARGO_PKG_NAME")));
-    lines.push(format!("Version: {}", env!("CARGO_PKG_VERSION")));
-
-    // OS info
-    lines.push(format!("OS: {} {}", std::env::consts::OS, std::env::consts::ARCH));
-
-    #[cfg(target_os = "linux")]
-    {
-        lines.push(format!("XDG_SESSION_TYPE: {}",
-            std::env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".into())));
-        lines.push(format!("XDG_CURRENT_DESKTOP: {}",
-            std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_else(|_| "unknown".into())));
-        lines.push(format!("WEBKIT_DISABLE_DMABUF_RENDERER: {}",
-            std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").unwrap_or_else(|_| "unset".into())));
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        lines.push("Package Type: macOS bundle".to_string());
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        lines.push("Package Type: Windows installer".to_string());
-    }
-
-    // App data dir
-    if let Ok(dir) = app.path().app_data_dir() {
-        lines.push(format!("App Data: {}", dir.display()));
-    }
-
-    // Check for FFmpeg
-    #[cfg(unix)]
-    {
-        let which = std::process::Command::new("which")
-            .arg("ffmpeg")
-            .output()
-            .ok()
-            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
-        lines.push(format!("FFmpeg: {}", which.unwrap_or_else(|| "not found".into())));
-    }
-
-    lines.push("==================================".into());
-
-    Ok(lines.join("\n"))
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
@@ -444,10 +389,10 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_clipboard_manager::init());
 
-    // The updater plugin is not supported on Android and can cause crashes
-    // (APKs are managed by the Play Store; the plugin attempts restricted FS ops).
-    #[cfg(not(target_os = "android"))]
-    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    // Auto-update is intentionally disabled in this personalized build (see
+    // useUpdateCheck.ts for the rationale). The tauri-plugin-updater crate is
+    // left in Cargo.toml but is no longer registered, so no update endpoint or
+    // signing key is trusted at runtime.
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
@@ -498,7 +443,7 @@ pub fn run() {
                                             let _ = crate::jni_cache::set_class_loader(class_loader_global);
                                         }
 
-                                        let class_name_jstr = match env.new_string("com.cameronamer.telegramdrive.MainActivity") {
+                                        let class_name_jstr = match env.new_string("com.telestore.app.MainActivity") {
                                             Ok(s) => Some(s),
                                             Err(e) => {
                                                 log::error!("JNI: Failed to create MainActivity class name string: {}", e);
@@ -721,7 +666,7 @@ pub fn run() {
             cmd_get_pending_share_count,
             cmd_list_cached_files,
             cmd_remove_cached_path,
-            cmd_get_system_diagnostics,
+            commands::cmd_get_system_diagnostics,
             commands::cmd_get_video_metadata,
             commands::cmd_get_video_metadata_batch,
             transcode::cmd_get_transcode_capabilities,

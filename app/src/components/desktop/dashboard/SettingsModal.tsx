@@ -4,8 +4,12 @@ import { X, RotateCcw, Download, Upload, Trash2, HardDrive, Globe, Key, Copy, Ch
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-shell';
 import { toast } from 'sonner';
-import { check, Update } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
+// Auto-update is disabled in this personalized build (see hooks/useUpdateCheck.ts).
+// These inert stubs keep the (now no-op) "Updates" UI compiling without pulling
+// in the updater/process plugins, so checks simply report "no update available".
+type Update = { version: string; downloadAndInstall: (cb: (event: { event: string; data?: { contentLength?: number; chunkLength?: number } }) => void) => Promise<void> };
+const check = async (): Promise<Update | null> => null;
+const relaunch = async (): Promise<void> => {};
 import { useSettings } from '../../../context/SettingsContext';
 import { useConfirm } from '../../../context/ConfirmContext';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +19,7 @@ import { version as appVersion } from '../../../../package.json';
 import { useTheme } from '../../../context/ThemeContext';
 import { CustomTheme, ThemeColorPalette, generateThemeId } from '../../../theme/themeEngine';
 import { getDefaultPalette } from '../../../theme/presets';
+import { AppLockSettings } from './AppLockSettings';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -630,6 +635,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     </div>
                                 </div>
                             </section>
+
+                            {/* App Lock Section (Track C) */}
+                            <AppLockSettings />
 
                             {/* REST API Section */}
                             <section className="space-y-3">
@@ -1605,11 +1613,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     >
                                         <div className="flex flex-col items-center py-6 space-y-5">
                                             {/* Logo */}
-                                            <img src="/logo.svg" className="w-16 h-16 drop-shadow-lg" alt="Telegram Drive Logo" />
+                                            <img src="/logo.svg" className="w-16 h-16 drop-shadow-lg" alt="TeleStore Logo" />
                                             
                                             {/* App Name & Version */}
                                             <div className="text-center">
-                                                <h3 className="text-base font-bold text-telegram-text">Telegram Drive</h3>
+                                                <h3 className="text-base font-bold text-telegram-text">TeleStore</h3>
                                                 <p className="text-xs text-telegram-subtext mt-0.5">v{appVersion}</p>
                                             </div>
 

@@ -32,12 +32,17 @@ impl BandwidthManager {
     pub fn new(app_handle: &tauri::AppHandle) -> Self {
         // Resolve app data directory
         let app_data_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("data"));
-        
+        Self::new_with_dir(app_data_dir)
+    }
+
+    /// Tauri-free constructor used by the headless self-host binary.
+    /// Persists `bandwidth.json` inside `app_data_dir`.
+    pub fn new_with_dir(app_data_dir: PathBuf) -> Self {
         if !app_data_dir.exists() {
              let _ = std::fs::create_dir_all(&app_data_dir);
         }
         let file_path = app_data_dir.join("bandwidth.json");
-        
+
         let stats = if file_path.exists() {
             let content = fs::read_to_string(&file_path).unwrap_or_default();
             serde_json::from_str(&content).unwrap_or_default()

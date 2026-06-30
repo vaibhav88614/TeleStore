@@ -25,6 +25,28 @@ struct VerifyForm {
     password: String,
 }
 
+/// Reason a share link is not accessible (for precise HTTP status mapping).
+#[derive(Debug, PartialEq, Eq)]
+pub enum ShareAccess {
+    Ok,
+    Revoked,
+    Expired,
+}
+
+/// Pure access check for a shared link. Extracted so it can be unit-tested
+/// without a database or HTTP context. `now` is a unix timestamp (seconds).
+pub fn check_share_access(revoked: bool, expires_at: Option<i64>, now: i64) -> ShareAccess {
+    if revoked {
+        return ShareAccess::Revoked;
+    }
+    if let Some(expiry) = expires_at {
+        if expiry < now {
+            return ShareAccess::Expired;
+        }
+    }
+    ShareAccess::Ok
+}
+
 /// Verify a password against a bcrypt hash.
 fn verify_password(password: &str, hash: &str) -> bool {
     bcrypt::verify(password, hash).unwrap_or(false)
@@ -93,7 +115,7 @@ fn render_password_form(file_name: &str, token: &str, error: Option<&str>) -> Ht
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Password Protected File - Telegram Drive</title>
+    <title>Password Protected File - TeleStore</title>
     <style>
         body {{
             background-color: #182533;
@@ -200,15 +222,10 @@ async fn get_shared_file(
     };
     
     // Check validation (revocation and expiration)
-    if row.revoked {
-        return HttpResponse::NotFound().body("This shared link has been revoked");
-    }
-    
-    if let Some(expiry) = row.expires_at {
-        let now = chrono::Utc::now().timestamp();
-        if expiry < now {
-            return HttpResponse::Gone().body("This shared link has expired");
-        }
+    match check_share_access(row.revoked, row.expires_at, chrono::Utc::now().timestamp()) {
+        ShareAccess::Revoked => return HttpResponse::NotFound().body("This shared link has been revoked"),
+        ShareAccess::Expired => return HttpResponse::Gone().body("This shared link has expired"),
+        ShareAccess::Ok => {}
     }
     
     // Check password protection
@@ -321,4 +338,31 @@ async fn verify_shared_file_password(
 pub fn configure_share_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(get_shared_file)
        .service(verify_shared_file_password);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{check_share_access, ShareAccess};
+
+    const NOW: i64 = 1_700_000_000;
+
+    #[test]
+    fn revoked_link_is_blocked() {
+        assert_eq!(check_share_access(true, None, NOW), ShareAccess::Revoked);
+        // Revocation takes precedence even if not yet expired.
+        assert_eq!(check_share_access(true, Some(NOW + 1000), NOW), ShareAccess::Revoked);
+    }
+
+    #[test]
+    fn expired_link_is_blocked() {
+        assert_eq!(check_share_access(false, Some(NOW - 1), NOW), ShareAccess::Expired);
+    }
+
+    #[test]
+    fn valid_link_is_ok() {
+        assert_eq!(check_share_access(false, None, NOW), ShareAccess::Ok);
+        assert_eq!(check_share_access(false, Some(NOW + 1), NOW), ShareAccess::Ok);
+        // Exactly-now is still valid (expiry is strict less-than).
+        assert_eq!(check_share_access(false, Some(NOW), NOW), ShareAccess::Ok);
+    }
 }

@@ -1,0 +1,59 @@
+# TeleStore headless self-host stack (Track B).
+#
+# The API key is NEVER exposed on the open internet here: the headless service
+# binds inside the Docker network and is fronted by Caddy, which you should pair
+# with mTLS, basic auth, or — preferably — only reach over Tailscale / a VPN.
+#
+# Usage:
+#   1. Authenticate once in the desktop app, enable the REST API + set a key.
+#   2. Copy that app-data dir (telegram.session, shares.db, api_settings.json)
+#      into ./data here.
+#   3. Set TD_API_ID in a .env file next to this compose file.
+#   4. docker compose up -d --build
+
+services:
+  telestore-headless:
+    build:
+      context: ..
+      dockerfile: selfhost/Dockerfile
+    image: telestore-headless
+    container_name: telestore-headless
+    restart: unless-stopped
+    environment:
+      TD_API_ID: ${TD_API_ID:?set TD_API_ID in .env}
+      TD_DATA_DIR: /data
+      TD_CACHE_DIR: /data/cache
+      TD_BIND: 0.0.0.0
+      TD_PORT: 8550
+    volumes:
+      - ./data:/data
+    # No host port published by default — only Caddy (same network) can reach it.
+    expose:
+      - "8550"
+    networks:
+      - telestore
+
+  caddy:
+    image: caddy:2
+    container_name: telestore-caddy
+    restart: unless-stopped
+    depends_on:
+      - telestore-headless
+    ports:
+      # Expose only on the loopback / Tailscale interface in production, e.g.
+      #   "100.x.y.z:8443:8443"  (your tailnet IP)  instead of "8443:8443".
+      - "8443:8443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - telestore
+
+networks:
+  telestore:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

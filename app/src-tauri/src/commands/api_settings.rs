@@ -146,3 +146,31 @@ pub async fn cmd_regenerate_api_key(
     // Return the plaintext key ONCE — it is never stored or retrievable again
     Ok(plaintext_key)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{hash_key, verify_key};
+
+    #[test]
+    fn correct_key_verifies() {
+        let key = "super-secret-api-key";
+        let hash = hash_key(key);
+        assert!(verify_key(key, &hash));
+    }
+
+    #[test]
+    fn wrong_key_rejected() {
+        let hash = hash_key("the-real-key");
+        assert!(!verify_key("a-different-key", &hash));
+        assert!(!verify_key("", &hash));
+    }
+
+    #[test]
+    fn hash_is_deterministic_and_not_plaintext() {
+        let key = "abc123";
+        assert_eq!(hash_key(key), hash_key(key));
+        assert_ne!(hash_key(key), key);
+        // SHA-256 hex is 64 chars.
+        assert_eq!(hash_key(key).len(), 64);
+    }
+}

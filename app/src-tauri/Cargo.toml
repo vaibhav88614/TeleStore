@@ -12,6 +12,27 @@ edition = "2021"
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Headless self-host server (Track B). Opt-in only — never built by the normal
+# desktop `tauri build`/`tauri dev` flow:
+#   cargo build --release --features headless --bin td-headless
+[[bin]]
+name = "td-headless"
+path = "src/bin/td-headless.rs"
+required-features = ["headless"]
+
+# CLI client for the REST API (Track D). Opt-in only:
+#   cargo build --release --features cli --bin td-cli
+[[bin]]
+name = "td-cli"
+path = "src/bin/td-cli.rs"
+required-features = ["cli"]
+
+[features]
+# Enables compilation of the td-headless binary. Inert for the desktop app.
+headless = []
+# Enables compilation of the td-cli binary. Inert for the desktop app.
+cli = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -52,6 +73,9 @@ rand = "0.9"
 sha2 = "0.10"
 bcrypt = "0.16"
 constant_time_eq = "0.3"
+# Track C: client-side end-to-end file encryption (see src/crypto.rs).
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 rar = "0.4"
 sevenz-rust2 = "0.7"

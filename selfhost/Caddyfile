@@ -1,0 +1,39 @@
+# Caddy reverse proxy for the TeleStore headless API.
+#
+# This terminates TLS and forwards to the headless container. The TeleStore API
+# key (X-API-Key) is the only application-level gate and there is NO rate
+# limiting, so DO NOT expose this on the public internet. Recommended postures:
+#
+#   - Bind Caddy's published port to your Tailscale IP only (see docker-compose),
+#     so the service is reachable solely from your tailnet, OR
+#   - Add an extra auth layer here (mTLS client certs or basic_auth).
+#
+# The :8443 site below uses Caddy's internal self-signed CA (fine for private
+# networks). For a real domain, replace `:8443` with `your.domain.tld` and Caddy
+# will provision a Let's Encrypt certificate automatically.
+
+:8443 {
+	tls internal
+
+	# Optional extra gate — uncomment and set a bcrypt hash via `caddy hash-password`:
+	# basic_auth {
+	# 	admin <bcrypt-hash>
+	# }
+
+	# Optional mTLS — require a client certificate signed by your CA:
+	# tls internal {
+	# 	client_auth {
+	# 		mode require_and_verify
+	# 		trusted_ca_cert_file /config/ca.pem
+	# 	}
+	# }
+
+	reverse_proxy telestore-headless:8550
+
+	encode gzip
+
+	log {
+		output stdout
+		format console
+	}
+}

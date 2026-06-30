@@ -59,7 +59,9 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
     const [floodWait, setFloodWait] = useState<number | null>(null);
     const [showHelp, setShowHelp] = useState(false);
     const [showDonate, setShowDonate] = useState(false);
-    const [loginMethod, setLoginMethod] = useState<'phone' | 'qr'>('phone');
+    // Default to QR login on desktop (faster, no SMS code round-trip).
+    // The mobile guard below forces phone login on touch devices.
+    const [loginMethod, setLoginMethod] = useState<'phone' | 'qr'>('qr');
     const isMobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
 
     useEffect(() => {
@@ -127,9 +129,15 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
         setError(null);
         await saveCredentials();
         setStep("phone");
-        setLoginMethod('phone');
         setQrUrl(null);
         setQrPolling(false);
+        // Desktop defaults to QR login and starts it immediately; mobile uses phone.
+        if (isMobile) {
+            setLoginMethod('phone');
+        } else {
+            setLoginMethod('qr');
+            handleQrLogin();
+        }
     };
 
     const handleQrLogin = async () => {
