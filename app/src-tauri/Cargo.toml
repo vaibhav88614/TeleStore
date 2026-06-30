@@ -93,6 +93,17 @@ webpki-roots = "0.26"
 jni = "0.21"
 ndk-context = "0.1.1"
 
+# Redirect grammers-mtsender to the vendored copy in `vendor/grammers-mtsender/`,
+# which is identical to upstream rev `d07f96f` except that its `hickory-resolver`
+# dependency is bumped from 0.25.2 -> 0.26.1. This patches:
+#   - RUSTSEC-2026-0118 (hickory-proto: NSEC3 closest-encloser proof unbounded loop)
+#   - RUSTSEC-2026-0119 (hickory-proto: O(n^2) name-compression CPU exhaustion)
+# Required because the upstream `Lonami/grammers` repository was archived on
+# 2026-02-10, so no fix can land upstream. The other grammers-* crates continue
+# to come from the original git rev and are not affected.
+[patch."https://github.com/Lonami/grammers"]
+grammers-mtsender = { path = "vendor/grammers-mtsender" }
+
 [package.metadata.tauri.bundle.windows]
 # Embed the WebView2 bootstrapper so the app works on Windows systems
 # where the WebView2 runtime is not pre-installed (fresh installs, servers, etc.)

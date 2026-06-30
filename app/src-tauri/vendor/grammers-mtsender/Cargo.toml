@@ -1,0 +1,46 @@
+[package]
+name = "grammers-mtsender"
+version = "0.8.1"
+authors = ["Lonami Exo <totufals@hotmail.com>"]
+license = "MIT OR Apache-2.0"
+description = """
+A sender implementation using the Mobile Transport Protocol.
+"""
+homepage = "https://github.com/Lonami/grammers"
+documentation = "https://docs.rs/grammers-mtsender"
+repository = "https://github.com/Lonami/grammers"
+keywords = ["api", "mtproto", "telegram", "tl"]
+categories = ["api-bindings", "network-programming"]
+edition = "2024"
+
+[features]
+proxy = ["tokio-socks", "hickory-resolver", "url"]
+
+# NOTE: Vendored copy of grammers-mtsender pinned to the same upstream
+# revision (`d07f96f`) the rest of the project consumes. The ONLY substantive
+# difference vs. upstream is the `hickory-resolver` version bump from 0.25.2
+# to 0.26.1, which carries the fixes for RUSTSEC-2026-0118 (NSEC3 unbounded
+# loop) and RUSTSEC-2026-0119 (O(n^2) name compression CPU exhaustion). The
+# upstream `Lonami/grammers` repository was archived on 2026-02-10, so this
+# patch cannot land upstream. The crate is wired in via `[patch."https://github.com/Lonami/grammers"]`
+# in `app/src-tauri/Cargo.toml`, leaving grammers-{client,session,tl-types}
+# untouched and still sourced from the original git rev.
+[dependencies]
+bytes = "1.10.1"
+grammers-crypto = { git = "https://github.com/Lonami/grammers", rev = "d07f96f", version = "0.8.0" }
+grammers-mtproto = { git = "https://github.com/Lonami/grammers", rev = "d07f96f", version = "0.8.0" }
+grammers-session = { git = "https://github.com/Lonami/grammers", rev = "d07f96f", version = "0.8.0" }
+grammers-tl-types = { git = "https://github.com/Lonami/grammers", rev = "d07f96f", version = "0.8.0", features = [ "tl-mtproto" ] }
+locate-locale = "0.2.0"
+os_info = { version = "3.12.0", default-features = false }
+log = "0.4.28"
+tokio = { version = "1.47.1", default-features = false, features = ["io-util", "sync", "time", "net", "macros", "rt"] }
+tokio-socks = { version = "0.5.2", optional = true }
+# RUSTSEC-2026-0118 / RUSTSEC-2026-0119: upgraded from 0.25.2 to 0.26.1.
+hickory-resolver = { version = "0.26.1", optional = true }
+url = { version = "2.5.7", optional = true }
+
+[dev-dependencies]
+simple_logger = { version = "5.0.0", default-features = false, features = ["colors"] }
+toml = "0.9.8"
+socks5-server = "0.10.1"
