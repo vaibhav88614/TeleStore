@@ -222,6 +222,68 @@ export function showFileDialogFallback(options: FileDialogFallbackOptions = {}):
   });
 }
 
+/**
+ * Browser fallback for picking a folder and returning each contained file with
+ * its relative path (subfolder structure preserved). Uses `webkitdirectory`,
+ * reading `webkitRelativePath` and stripping the top-level folder name so the
+ * result matches the native folder-upload flow (e.g. "sub/dir/a.jpg").
+ */
+export function showFolderPickerFallback(): Promise<{ path: string; relativePath: string }[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+
+    let focusTimeout: ReturnType<typeof setTimeout> | undefined;
+    let resolved = false;
+
+    const cleanup = () => {
+      window.removeEventListener('focus', onFocus);
+      if (focusTimeout) clearTimeout(focusTimeout);
+      input.remove();
+    };
+
+    const finish = (entries: { path: string; relativePath: string }[]) => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      resolve(entries);
+    };
+
+    input.onchange = () => {
+      const entries: { path: string; relativePath: string }[] = [];
+      if (input.files) {
+        for (let i = 0; i < input.files.length; i++) {
+          const file = input.files[i];
+          const path = (file as any).path as string | undefined;
+          if (!path || typeof path !== 'string' || path.length === 0) continue;
+          const rel = (file as any).webkitRelativePath as string | undefined;
+          // Drop the leading top-level folder segment to mirror the native flow.
+          const relativePath = rel && rel.includes('/')
+            ? rel.slice(rel.indexOf('/') + 1)
+            : (rel || file.name);
+          entries.push({ path, relativePath });
+        }
+      }
+      finish(entries);
+    };
+
+    const onFocus = () => {
+      window.removeEventListener('focus', onFocus);
+      focusTimeout = setTimeout(() => {
+        if (input.parentNode) finish([]);
+      }, 300);
+    };
+    window.addEventListener('focus', onFocus);
+
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
 export function sanitizeFilename(name: string): string {
     return name
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')

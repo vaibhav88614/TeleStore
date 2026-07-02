@@ -5,7 +5,7 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { QueueItem } from '../types';
-import { isAndroidPlatform, showFileDialogFallback, pickWithFallback } from '../utils';
+import { isAndroidPlatform, showFileDialogFallback, showFolderPickerFallback, pickWithFallback } from '../utils';
 import { useSettings } from '../context/SettingsContext';
 import type { Store } from '@tauri-apps/plugin-store';
 
@@ -132,7 +132,7 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
             if (item.url) {
                 await invoke('cmd_upload_from_url', { url: item.url, folderId: item.folderId, transferId: item.id });
             } else {
-                await invoke('cmd_upload_file', { path: item.path, folderId: item.folderId, transferId: item.id });
+                await invoke('cmd_upload_file', { path: item.path, folderId: item.folderId, transferId: item.id, customName: item.customName });
             }
             // Check if cancelled during upload
             if (cancelledRef.current.has(item.id)) {
@@ -179,6 +179,21 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
         toast.info(`Queued ${paths.length} file${paths.length !== 1 ? 's' : ''} for upload`);
     };
 
+    /** Queues files that carry a relative path, preserving subfolder structure
+     *  in the display name (used when uploading a folder's contents). */
+    const queueFilesWithNames = (entries: { path: string; relativePath: string }[]) => {
+        if (!entries || entries.length === 0) return;
+        const newItems: QueueItem[] = entries.map(({ path, relativePath }) => ({
+            id: Math.random().toString(36).substr(2, 9),
+            path,
+            folderId: activeFolderId,
+            status: 'pending' as const,
+            customName: relativePath,
+        }));
+        setUploadQueue(prev => [...prev, ...newItems]);
+        toast.info(`Queued ${entries.length} file${entries.length !== 1 ? 's' : ''} for upload`);
+    };
+
     const handleManualUpload = async () => {
         const paths = await pickWithFallback(
             async () => {
@@ -218,14 +233,14 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
             {
                 errorTitle: 'Folder picker failed',
                 onBrowserPicker: async () => {
-                    const fallbackPaths = await showFileDialogFallback({ directory: true, multiple: true });
-                    if (fallbackPaths.length > 0) {
-                        // HTML folder picker returns individual file paths, not a folder path.
-                        // We can't zip without a folder path, so files upload individually.
-                        toast.info('Folder zipping unavailable with browser picker — uploading files individually.');
-                        queueFiles(fallbackPaths);
+                    // The HTML folder picker returns individual files. Preserve their
+                    // relative paths (stripping the top-level folder name) so subfolder
+                    // structure is kept in the display name, matching the native flow.
+                    const files = await showFolderPickerFallback();
+                    if (files.length > 0) {
+                        queueFilesWithNames(files);
                     }
-                    return null; // Already handled via queueFiles — signal that the main flow should stop
+                    return null; // Already handled — signal that the main flow should stop
                 },
             },
         );
@@ -233,25 +248,19 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
 
         const folderName = folderPath.split('/').pop() || folderPath.split('\\').pop() || 'folder';
 
-        if (settings.zipFolders) {
-            toast.info(`Zipping "${folderName}"...`);
-            try {
-                const zipPath = await invoke<string>('cmd_zip_folder', { folderPath });
-                const item: QueueItem = {
-                    id: Math.random().toString(36).substr(2, 9),
-                    path: zipPath,
-                    folderId: activeFolderId,
-                    status: 'pending',
-                    tempZipPath: zipPath,
-                };
-                setUploadQueue(prev => [...prev, item]);
-                toast.success(`Queued "${folderName}.zip" for upload`);
-            } catch (e) {
-                console.error('[Upload] Zip error:', e);
-                toast.error(`Failed to zip folder: ${e}`);
+        try {
+            const entries = await invoke<{ path: string; relative_path: string }[]>(
+                'cmd_list_folder_files',
+                { folderPath },
+            );
+            if (!entries || entries.length === 0) {
+                toast.info(`"${folderName}" has no files to upload`);
+                return;
             }
-        } else {
-            toast.info(`Folder upload without zipping is not supported. Enable "Zip folders before upload" in Settings.`);
+            queueFilesWithNames(entries.map(e => ({ path: e.path, relativePath: e.relative_path })));
+        } catch (e) {
+            console.error('[Upload] Folder listing error:', e);
+            toast.error(`Failed to read folder: ${e}`);
         }
     };
 

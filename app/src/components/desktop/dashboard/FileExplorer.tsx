@@ -200,7 +200,7 @@ export function FileExplorer({
     if (files.length === 0) {
         return (
             <div className="flex-1 p-6 overflow-auto">
-                <EmptyState onUpload={onManualUpload} />
+                <EmptyState onUpload={onManualUpload} onUploadFolder={showFolderUpload ? onFolderUpload : undefined} />
             </div>
         );
     }

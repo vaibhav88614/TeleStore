@@ -743,6 +743,7 @@ pub async fn cmd_upload_file(
     mut path: String,
     folder_id: Option<i64>,
     transfer_id: Option<String>,
+    custom_name: Option<String>,
     app_handle: tauri::AppHandle,
     state: State<'_, TelegramState>,
     bw_state: State<'_, Arc<BandwidthManager>>,
@@ -771,6 +772,7 @@ pub async fn cmd_upload_file(
         path.clone(),
         folder_id,
         transfer_id,
+        custom_name,
         app_handle,
         state,
         bw_state,
@@ -789,6 +791,7 @@ async fn cmd_upload_file_inner(
     path: String,
     folder_id: Option<i64>,
     transfer_id: Option<String>,
+    custom_name: Option<String>,
     app_handle: tauri::AppHandle,
     state: State<'_, TelegramState>,
     bw_state: State<'_, Arc<BandwidthManager>>,
@@ -824,7 +827,13 @@ async fn cmd_upload_file_inner(
         bw_state.release_up(size);
         e
     })?;
-    let file_name = std::path::Path::new(&path)
+    // The document's built-in filename is always the plain base name (with
+    // extension) so file-type icons resolve correctly. When a custom name is
+    // provided (folder uploads carry a relative path like "sub/dir/a.jpg"),
+    // we still store only its base name here and put the full relative path in
+    // the message caption below.
+    let name_source = custom_name.as_deref().filter(|n| !n.is_empty()).unwrap_or(&path);
+    let file_name = std::path::Path::new(name_source)
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "file".to_string());
@@ -905,7 +914,14 @@ async fn cmd_upload_file_inner(
     if let Some(t) = progress_task { t.abort(); }
 
     let uploaded_file = upload_result.map_err(map_error)?;
-    let message = InputMessage::new().text("").file(uploaded_file);
+    // Preserve subfolder structure as the display name by storing the relative
+    // path in the caption (which cmd_get_files prefers over the document name).
+    // Root-level files get no caption so they behave like normal uploads.
+    let caption = match &custom_name {
+        Some(n) if n.contains('/') => n.clone(),
+        _ => String::new(),
+    };
+    let message = InputMessage::new().text(caption.as_str()).file(uploaded_file);
 
     let peer = resolve_peer(&client, folder_id, &state.peer_cache).await?;
 
@@ -970,6 +986,7 @@ pub async fn initiate_upload(
         path,
         folder_id,
         transfer_id,
+        None,
         app_handle,
         state,
         bw_state,
@@ -1618,6 +1635,60 @@ pub async fn cmd_scan_folders(
     let conn = db_pool.lock().map_err(|_| "DB poisoned".to_string())?;
     let enriched = crate::commands::folder_groups::get_enriched_folders_internal(&conn, folders)?;
     Ok(enriched)
+}
+
+/// A single file discovered while walking a folder for upload.
+/// `path` is the absolute path on disk; `relative_path` is the path relative
+/// to the picked folder (forward-slashed), used to preserve subfolder structure
+/// in the uploaded file's display name.
+#[derive(Serialize)]
+pub struct FolderFileEntry {
+    pub path: String,
+    pub relative_path: String,
+}
+
+/// Recursively list every file inside a folder (folders themselves are omitted).
+/// Used to upload a folder's contents individually instead of zipping it.
+#[tauri::command]
+pub async fn cmd_list_folder_files(
+    folder_path: String,
+) -> Result<Vec<FolderFileEntry>, String> {
+    let folder_path = if cfg!(target_os = "android") {
+        clean_android_path(&folder_path)
+    } else {
+        folder_path
+    };
+
+    let src = std::path::Path::new(&folder_path)
+        .canonicalize()
+        .map_err(|e| format!("Invalid folder path: {}", e))?;
+    if !src.is_dir() {
+        return Err(format!("'{}' is not a directory", folder_path));
+    }
+
+    let src_owned = src.clone();
+    let entries = tokio::task::spawn_blocking(move || {
+        let mut out: Vec<FolderFileEntry> = Vec::new();
+        for entry in walkdir::WalkDir::new(&src_owned).into_iter().filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_file() {
+                let relative = path.strip_prefix(&src_owned).unwrap_or(path);
+                // Normalise to forward slashes so the display name is consistent
+                // across platforms (Windows uses '\\' natively).
+                let relative_path = relative.to_string_lossy().replace('\\', "/");
+                out.push(FolderFileEntry {
+                    path: path.to_string_lossy().to_string(),
+                    relative_path,
+                });
+            }
+        }
+        out
+    })
+    .await
+    .map_err(|e| format!("List task panicked: {}", e))?;
+
+    log::info!("Listed {} file(s) in folder '{}'", entries.len(), folder_path);
+    Ok(entries)
 }
 
 /// Zip a folder's contents into a temp file and return the path.

@@ -517,19 +517,6 @@ export default function MobileDashboard({ onLogout }: { onLogout?: () => void })
           <div className="space-y-4">
             <div className="p-4 rounded-2xl bg-telegram-hover/20 border border-telegram-border/30 space-y-4">
               <h3 className="text-sm font-bold text-telegram-primary tracking-wide uppercase text-[10px]">{t('common.preferences')}</h3>
-              <div className="flex items-center justify-between py-2 border-b border-telegram-border/20">
-                <div>
-                  <p className="text-xs font-medium">{t('settings.zip_before_upload')}</p>
-                  <p className="text-[10px] text-telegram-subtext">{t('settings.zip_folders_desc')}</p>
-                </div>
-                <button
-                  onClick={() => updateSetting('zipFolders', !settings.zipFolders)}
-                  className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${settings.zipFolders ? 'bg-telegram-primary' : 'bg-telegram-border'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${settings.zipFolders ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
-              </div>
-
               <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-xs font-medium">{t('common.language')}</p>

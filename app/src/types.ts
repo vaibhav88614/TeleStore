@@ -45,6 +45,9 @@ export interface QueueItem {
     totalBytes?: number;
     speedBytesPerSec?: number;
     tempZipPath?: string; // Set when the upload originated from a zipped folder
+    /** Relative path (e.g. "sub/dir/a.jpg") used as the display name when
+     *  uploading a folder's contents, so subfolder structure is preserved. */
+    customName?: string;
 }
 
 export interface BandwidthStats {

@@ -652,6 +652,7 @@ pub fn run() {
             commands::cmd_delete_image_thumbnail,
             commands::cmd_zip_folder,
             commands::cmd_delete_temp_zip,
+            commands::cmd_list_folder_files,
             commands::cmd_apply_proxy_settings,
             commands::cmd_get_proxy_status,
             commands::cmd_apply_vpn_settings,

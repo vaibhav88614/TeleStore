@@ -1,10 +1,11 @@
-import { Upload } from 'lucide-react';
+import { Upload, FolderUp } from 'lucide-react';
 
 interface EmptyStateProps {
     onUpload: () => void;
+    onUploadFolder?: () => void;
 }
 
-export function EmptyState({ onUpload }: EmptyStateProps) {
+export function EmptyState({ onUpload, onUploadFolder }: EmptyStateProps) {
     return (
         <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
             {/* Custom SVG Illustration */}
@@ -55,13 +56,24 @@ export function EmptyState({ onUpload }: EmptyStateProps) {
                 Drag and drop files here, or click the button below to upload from your computer.
             </p>
 
-            <button
-                onClick={onUpload}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-telegram-primary text-black font-medium rounded-xl hover:bg-telegram-primary/90 transition-all hover:scale-105 shadow-lg shadow-telegram-primary/20"
-            >
-                <Upload className="w-5 h-5" />
-                Upload Files
-            </button>
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={onUpload}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-telegram-primary text-black font-medium rounded-xl hover:bg-telegram-primary/90 transition-all hover:scale-105 shadow-lg shadow-telegram-primary/20"
+                >
+                    <Upload className="w-5 h-5" />
+                    Upload Files
+                </button>
+                {onUploadFolder && (
+                    <button
+                        onClick={onUploadFolder}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-telegram-hover text-telegram-text font-medium rounded-xl border border-telegram-border hover:bg-telegram-border/60 transition-all hover:scale-105"
+                    >
+                        <FolderUp className="w-5 h-5" />
+                        Upload Folder
+                    </button>
+                )}
+            </div>
 
             <p className="text-xs text-telegram-subtext/50 mt-6">
                 Tip: Use <kbd className="px-1.5 py-0.5 bg-telegram-hover rounded text-telegram-subtext">Cmd + F</kbd> to search

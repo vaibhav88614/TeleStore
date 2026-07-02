@@ -680,7 +680,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
                     onPreview={handlePreview}
                     onManualUpload={handleManualUpload}
                     onFolderUpload={handleFolderUpload}
-                    showFolderUpload={settings.zipFolders}
+                    showFolderUpload={true}
                     onToggleSelection={handleToggleSelection}
                     onDrop={handleDropOnFolder}
                     onDragStart={(ids) => setInternalDragIds(ids)}
