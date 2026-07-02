@@ -4,10 +4,7 @@ version = "1.9.5"
 description = "Turn your Telegram account into an unlimited, secure cloud storage drive. an Open-source desktop app built with Tauri, Rust, and React."
 authors = ["Vaibhav"]
 edition = "2021"
-
-
-
-[lib]
+default-run = "app"
 
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -93,7 +90,7 @@ webpki-roots = "0.26"
 jni = "0.21"
 ndk-context = "0.1.1"
 
-# Redirect grammers-mtsender to the vendored copy in `vendor/grammers-mtsender/`,
+[pa# Redirect grammers-mtsender to the vendored copy in `vendor/grammers-mtsender/`,
 # which is identical to upstream rev `d07f96f` except that its `hickory-resolver`
 # dependency is bumped from 0.25.2 -> 0.26.1. This patches:
 #   - RUSTSEC-2026-0118 (hickory-proto: NSEC3 closest-encloser proof unbounded loop)
@@ -104,7 +101,7 @@ ndk-context = "0.1.1"
 [patch."https://github.com/Lonami/grammers"]
 grammers-mtsender = { path = "vendor/grammers-mtsender" }
 
-[package.metadata.tauri.bundle.windows]
+ckage.metadata.tauri.bundle.windows]
 # Embed the WebView2 bootstrapper so the app works on Windows systems
 # where the WebView2 runtime is not pre-installed (fresh installs, servers, etc.)
 webview-install-mode = "embeddir"
